@@ -1,0 +1,37 @@
+{
+  "name": "crumple",
+  "version": "1.0.0",
+  "description": "Confirm a delete, the dialog crumples into a paper ball, you throw it in the bin. WebGL2, tiny physics, synthesized sound, no dependency.",
+  "main": "crumple.js",
+  "types": "crumple.d.ts",
+  "jsdelivr": "crumple.min.js",
+  "unpkg": "crumple.min.js",
+  "files": [
+    "crumple.js",
+    "crumple.min.js",
+    "crumple.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "webgl",
+    "webgl2",
+    "shader",
+    "paper",
+    "crumple",
+    "trash",
+    "delete",
+    "confirm-dialog",
+    "micro-interaction",
+    "physics",
+    "throw",
+    "vanilla-js"
+  ],
+  "author": "Julien Picker (https://picker.studio)",
+  "homepage": "https://picker.studio/tools/crumple",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuPicker/crumple.git"
+  },
+  "license": "MIT"
+}

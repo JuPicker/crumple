@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crumple</title>
+<style>
+  @font-face{ font-family:"Geist"; src:url("fonts/Geist-Variable.woff2") format("woff2"); font-weight:100 900; font-display:block; }
+  /* 4px grid: every size, gap, padding and radius below is a multiple of 4 */
+  :root{
+    --bg:#ffffff;
+    --side:#f8f8f9;
+    --card:#ffffff;
+    --raised:#f4f4f5;
+    --raised-2:#ffffff;
+    --track:#f0f0f2;
+    --hover:rgba(15,15,20,.035);
+    --line:rgba(15,15,20,.07);
+    --line-2:rgba(15,15,20,.1);
+    --ink:#18181b;
+    --ink-2:#5f5f67;
+    --ink-3:#9a9aa2;
+    --danger:#c4473e;
+    --danger-ink:#b8433a;
+    --danger-soft:rgba(196,71,62,.09);
+    --ok:#1f9d63;
+    --ok-soft:rgba(31,157,99,.1);
+    --r-card:20px;
+    --r-dialog:28px;
+    --r-btn:16px;
+    --r-btn-sm:12px;
+    --r-item:12px;
+    --ease:cubic-bezier(.22,1,.36,1);
+    /* replaced at boot by a real spring curve (see demo.js) */
+    --spring:cubic-bezier(.3,1.4,.5,1);
+    --spring-dur:600ms;
+    --spring-soft:cubic-bezier(.22,1,.36,1);
+    --spring-soft-dur:700ms;
+    --sans:"Geist", ui-sans-serif, system-ui, sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; }
+  html,body{ height:100%; }
+  body{
+    background:#7fb2e6 url("sky.jpg") center/cover no-repeat; color:var(--ink); font-family:var(--sans); font-size:14px; line-height:20px;
+    -webkit-font-smoothing:antialiased; overflow:hidden; touch-action:none;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+  :focus-visible{ outline:1px solid rgba(255,255,255,.6); outline-offset:2px; }
+  svg{ display:block; flex:none; }
+  .i{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---- buttons ---- */
+  .btn{
+    height:36px; padding:0 16px; border-radius:var(--r-btn-sm); font-weight:500; white-space:nowrap;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--raised); color:var(--ink); box-shadow:inset 0 0 0 1px var(--line);
+    transition:background .2s var(--ease), transform .4s var(--spring), color .2s;
+  }
+  .btn:hover{ background:#ececee; }
+  .btn:active{ transform:scale(.96); transition-duration:.12s; }
+  .btn.primary{ background:var(--ink); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.12); }
+  .btn.primary:hover{ background:#2a2a2e; }
+  .btn.danger{ background:var(--danger); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.16); }
+  .btn.danger:hover{ background:#b8413a; }
+  .btn.ghost-danger{ background:var(--danger-soft); color:var(--danger-ink); box-shadow:none; }
+  .btn.ghost-danger:hover{ background:rgba(196,71,62,.15); }
+  .btn.lg{ height:44px; border-radius:var(--r-btn); padding:0 20px; }
+  .icon{
+    width:32px; height:32px; border-radius:10px; display:grid; place-items:center; color:var(--ink-3);
+    transition:background .2s var(--ease), color .2s var(--ease), transform .4s var(--spring);
+  }
+  .icon:hover{ background:var(--hover); color:var(--ink); }
+  .icon:active{ transform:scale(.9); transition-duration:.12s; }
+
+  /* ---- morphing pill: tabs, segmented controls, sidebar ---- */
+  .seg{ position:relative; display:inline-flex; gap:4px; padding:4px; border-radius:16px; background:var(--track); }
+  .seg button{ position:relative; z-index:1; height:32px; padding:0 14px; border-radius:var(--r-item); font-weight:500; color:var(--ink-3); white-space:nowrap; transition:color .25s var(--ease); display:flex; align-items:center; gap:8px; }
+  .seg button:hover{ color:var(--ink-2); }
+  .seg button[aria-selected="true"]{ color:var(--ink); }
+  .seg button small{ font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+  .pill{
+    position:absolute; left:0; top:4px; height:32px; border-radius:var(--r-item); background:#fff;
+    box-shadow:0 0 0 1px rgba(15,15,20,.05), 0 1px 2px rgba(15,15,20,.08), 0 2px 8px -2px rgba(15,15,20,.08);
+    transition:transform var(--spring-dur) var(--spring), width var(--spring-dur) var(--spring);
+    will-change:transform, width;
+  }
+  .no-anim .pill, .no-anim .nav-pill{ transition:none !important; }
+
+  /* ---- app shell ---- */
+  .app{
+    position:fixed; inset:32px; max-width:1240px; max-height:800px; margin:auto; display:grid; grid-template-columns:248px 1fr;
+    background:var(--bg); border-radius:32px; overflow:hidden;
+    box-shadow:0 0 0 1px rgba(255,255,255,.5), 0 2px 4px rgba(20,40,80,.06), 0 32px 80px -24px rgba(20,40,80,.4);
+  }
+  .side{ background:var(--side); border-right:1px solid var(--line); padding:16px 12px; display:flex; flex-direction:column; gap:20px; min-height:0; }
+  .ws{ display:flex; align-items:center; gap:12px; height:40px; padding:0 8px; border-radius:var(--r-item); }
+  .ws-logo{ width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:linear-gradient(140deg,#3a3a40,#111114); color:#fff; font-weight:700; font-size:13px; flex:none; }
+  .ws b{ font-weight:500; flex:1; }
+  .ws svg{ color:var(--ink-3); }
+  .find{ display:flex; align-items:center; gap:8px; height:36px; padding:0 12px; border-radius:var(--r-item); background:var(--card); box-shadow:inset 0 0 0 1px var(--line); color:var(--ink-3); font-size:13px; }
+  .find kbd{ margin-left:auto; font:inherit; font-size:12px; padding:0 6px; height:20px; line-height:20px; border-radius:6px; background:var(--track); color:var(--ink-3); }
+  .nav{ position:relative; display:grid; gap:4px; }
+  .nav h6{ font-size:12px; font-weight:500; color:var(--ink-3); padding:0 12px; margin:12px 0 4px; }
+  .nav a{ position:relative; z-index:1; display:flex; align-items:center; gap:12px; height:36px; padding:0 12px; border-radius:var(--r-item); color:var(--ink-2); text-decoration:none; font-weight:450; cursor:pointer; transition:color .2s; }
+  .nav a:hover{ color:var(--ink); }
+  .nav a[aria-current="page"]{ color:var(--ink); }
+  .nav a .count{ margin-left:auto; font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+  .nav-pill{
+    position:absolute; left:0; right:0; top:0; height:36px; border-radius:var(--r-item); background:#fff;
+    box-shadow:0 0 0 1px rgba(15,15,20,.05), 0 1px 2px rgba(15,15,20,.06);
+    transition:transform var(--spring-dur) var(--spring); will-change:transform;
+  }
+  .side-foot{ margin-top:auto; display:grid; gap:12px; }
+  .meter-card{ padding:16px; border-radius:16px; background:var(--card); box-shadow:inset 0 0 0 1px var(--line); display:grid; gap:12px; }
+  .meter-card p{ display:flex; justify-content:space-between; font-size:13px; color:var(--ink-2); }
+  .meter-card p b{ color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
+  .bar{ height:4px; border-radius:4px; background:var(--track); overflow:hidden; }
+  .bar i{ display:block; height:100%; border-radius:4px; background:var(--ink); transform-origin:left; transition:transform var(--spring-soft-dur) var(--spring-soft); }
+  .row-toggle{ display:flex; align-items:center; justify-content:space-between; height:36px; padding:0 4px 0 12px; color:var(--ink-2); font-size:13px; }
+  .me{ display:flex; align-items:center; gap:12px; padding:8px; border-radius:var(--r-item); }
+  .me div{ display:grid; }
+  .me b{ font-weight:500; font-size:13px; line-height:16px; }
+  .me span{ font-size:12px; line-height:16px; color:var(--ink-3); }
+
+  /* switch: the knob stretches while it travels */
+  .switch{ position:relative; width:40px; height:24px; border-radius:12px; background:#e2e2e6; transition:background .3s var(--ease); flex:none; }
+  .switch::after{
+    content:""; position:absolute; top:4px; left:4px; width:16px; height:16px; border-radius:8px; background:#fff;
+    box-shadow:0 1px 2px rgba(0,0,0,.4); transition:transform var(--spring-dur) var(--spring), width var(--spring-dur) var(--spring);
+  }
+  .switch:active::after{ width:20px; }
+  .switch[aria-checked="true"]{ background:var(--ok); }
+  .switch[aria-checked="true"]::after{ transform:translateX(16px); }
+  .switch[aria-checked="true"]:active::after{ transform:translateX(12px); }
+
+  .avatar{ width:28px; height:28px; border-radius:14px; display:grid; place-items:center; font-size:11px; font-weight:600; color:#111; background:var(--c); flex:none; }
+
+  /* ---- main ---- */
+  .main{ position:relative; min-width:0; overflow:hidden; }
+  .page{ position:absolute; inset:0; padding:32px 40px 40px; display:none; flex-direction:column; gap:24px; overflow:hidden; }
+  .page.on{ display:flex; }
+  .head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .crumb{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-3); margin-bottom:4px; }
+  .head h1{ font-size:24px; line-height:32px; font-weight:500; letter-spacing:-.02em; }
+  .head-actions{ display:flex; align-items:center; gap:8px; }
+  .search{ display:flex; align-items:center; gap:8px; width:220px; height:36px; padding:0 12px; border-radius:var(--r-btn-sm); background:var(--card); box-shadow:inset 0 0 0 1px var(--line); color:var(--ink-3); font-size:13px; }
+  .stats{ display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+  .stat{ padding:16px 20px; border-radius:var(--r-card); background:var(--card); box-shadow:inset 0 0 0 1px var(--line); display:grid; gap:8px; }
+  .stat > span{ font-size:13px; color:var(--ink-3); }
+  .stat b{ font-size:22px; line-height:28px; font-weight:450; letter-spacing:-.02em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .stat b small{ font-size:13px; color:var(--ink-3); font-weight:400; letter-spacing:0; }
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .table{ flex:1; min-height:0; border-radius:var(--r-card); background:var(--card); box-shadow:inset 0 0 0 1px var(--line); display:flex; flex-direction:column; overflow:hidden; }
+  .thead, .tr{ display:grid; grid-template-columns:minmax(0,1fr) 140px 88px 112px 32px; gap:16px; align-items:center; }
+  .thead{ height:44px; padding:0 16px 0 24px; font-size:12px; color:var(--ink-3); border-bottom:1px solid var(--line); flex:none; }
+  .tbody{ overflow:auto; scrollbar-width:none; padding:4px; }
+  .tbody::-webkit-scrollbar{ display:none; }
+  .tr{ height:56px; padding:0 12px 0 20px; border-radius:16px; overflow:hidden; transition:background .2s, opacity .3s, height .45s var(--ease), transform var(--spring-dur) var(--spring); }
+  .tr:hover{ background:var(--hover); }
+  .tr.gone{ height:0; opacity:0; transform:scale(.97); pointer-events:none; }
+  .tr.hide{ display:none; }
+  .fname{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .fname div{ display:grid; min-width:0; }
+  .fname b{ font-weight:450; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fname span{ font-size:12px; line-height:16px; color:var(--ink-3); }
+  .ftile{ width:36px; height:36px; border-radius:12px; flex:none; display:grid; place-items:center; color:var(--c); background:color-mix(in srgb, var(--c) 13%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 18%, transparent); }
+  .owner{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-2); white-space:nowrap; }
+  .owner .avatar{ width:24px; height:24px; font-size:10px; }
+  .muted{ font-size:13px; color:var(--ink-3); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .tr .icon:hover{ background:var(--danger-soft); color:var(--danger-ink); }
+  .empty{ display:none; justify-items:center; gap:16px; padding:48px 24px; color:var(--ink-3); text-align:center; }
+  .tbody.is-empty + .empty{ display:grid; }
+
+  /* billing */
+  .grid2{ display:grid; grid-template-columns:1.25fr 1fr; gap:12px; }
+  .panel{ padding:24px; border-radius:var(--r-card); background:var(--card); box-shadow:inset 0 0 0 1px var(--line); display:flex; flex-direction:column; gap:20px; }
+  .panel h3{ font-size:13px; font-weight:450; color:var(--ink-3); }
+  .plan-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .plan-name{ display:flex; align-items:center; gap:12px; font-size:18px; font-weight:500; }
+  .plan-mark{ width:36px; height:36px; border-radius:12px; display:grid; place-items:center; background:linear-gradient(140deg,#3a3a40,#111114); color:#fff; font-weight:700; }
+  .badge{ height:24px; padding:0 10px; border-radius:12px; display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500; background:var(--ok-soft); color:var(--ok); transition:background .3s, color .3s; }
+  .badge::before{ content:""; width:6px; height:6px; border-radius:3px; background:currentColor; }
+  .badge.warn{ background:var(--danger-soft); color:var(--danger-ink); }
+  .price{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .price b{ font-size:40px; line-height:48px; font-weight:450; letter-spacing:-.03em; font-variant-numeric:tabular-nums; display:inline-block; }
+  .price span{ color:var(--ink-3); }
+  .save{ font-size:12px; height:24px; padding:0 8px; border-radius:8px; display:inline-flex; align-items:center; align-self:center; background:var(--ok-soft); color:var(--ok); opacity:0; transform:translateY(4px) scale(.9); transition:opacity .3s, transform var(--spring-dur) var(--spring); }
+  .save.on{ opacity:1; transform:none; }
+  .plan-rows{ display:grid; gap:4px; border-top:1px solid var(--line); padding-top:12px; }
+  .plan-row{ display:flex; align-items:center; justify-content:space-between; height:40px; color:var(--ink-2); }
+  .plan-row b{ color:var(--ink); font-weight:450; font-variant-numeric:tabular-nums; }
+  .usage{ display:grid; gap:20px; }
+  .use{ display:grid; gap:8px; }
+  .use p{ display:flex; justify-content:space-between; color:var(--ink-2); font-size:13px; }
+  .use p b{ color:var(--ink); font-weight:450; font-variant-numeric:tabular-nums; }
+  .zone{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 24px; border-radius:var(--r-card); background:var(--card); box-shadow:inset 0 0 0 1px var(--line); }
+  .zone b{ display:block; font-weight:500; }
+  .zone p{ color:var(--ink-3); font-size:13px; }
+  .tab-body{ display:none; flex-direction:column; gap:12px; min-height:0; }
+  .tab-body.on{ display:flex; }
+  .inv{ display:grid; grid-template-columns:1fr 100px 96px 32px; gap:16px; align-items:center; height:56px; padding:0 16px 0 24px; border-top:1px solid var(--line); }
+  .inv:first-child{ border-top:0; }
+  .paid{ height:24px; padding:0 10px; border-radius:12px; display:inline-flex; align-items:center; font-size:12px; font-weight:500; background:var(--ok-soft); color:var(--ok); justify-self:start; }
+  .cc{ width:min(320px,100%); aspect-ratio:1.6; border-radius:20px; padding:20px; display:flex; flex-direction:column; justify-content:space-between; color:#fff;
+    background:radial-gradient(120% 140% at 0% 0%, #3a3a3e 0%, #1c1c1f 45%, #111113 100%); box-shadow:0 24px 48px -24px rgba(20,30,60,.5); }
+  .cc .chip{ width:36px; height:28px; border-radius:8px; background:linear-gradient(135deg,#d8c9a0,#8f7d52); }
+  .cc p{ font-size:16px; letter-spacing:.12em; font-variant-numeric:tabular-nums; }
+  .cc div{ display:flex; justify-content:space-between; font-size:12px; color:rgba(255,255,255,.6); }
+
+  /* ---- dialog ---- */
+  .scrim{ position:fixed; inset:0; z-index:20; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:16px; }
+  .scrim::before{ content:""; position:absolute; inset:0; background:rgba(20,30,50,.18); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .scrim.open{ display:flex; }
+  .scrim.open::before{ animation:fade .3s ease both; }
+  .scrim.leaving{ pointer-events:none; }
+  .scrim.leaving .hint{ opacity:0; }
+  @keyframes fade{ from{ opacity:0; } }
+  .dialog{ position:relative; width:min(400px, 100%); padding:24px; border-radius:var(--r-dialog); background:#fff; box-shadow:0 0 0 1px rgba(15,15,20,.04), 0 24px 56px -16px rgba(20,30,60,.35); }
+  .glyph{ width:44px; height:44px; border-radius:14px; display:grid; place-items:center; margin-bottom:20px; background:var(--danger-soft); color:var(--danger-ink); }
+  .glyph .i{ width:20px; height:20px; }
+  .dialog h2{ font-size:17px; line-height:24px; font-weight:500; letter-spacing:-.01em; margin-bottom:4px; }
+  .dialog p{ color:var(--ink-2); }
+  .meta{ display:flex; align-items:center; gap:12px; margin-top:20px; padding:12px; border-radius:16px; background:var(--raised); }
+  .meta div{ display:grid; min-width:0; }
+  .meta b{ font-weight:450; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .meta span{ color:var(--ink-3); font-size:12px; line-height:16px; }
+  .actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:24px; }
+  .actions .danger{ touch-action:none; }
+  .hint{ position:relative; display:flex; align-items:center; gap:8px; height:36px; padding:0 16px 0 12px; border-radius:18px; background:rgba(255,255,255,.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); box-shadow:0 8px 24px -12px rgba(20,30,60,.3); color:var(--ink-2); font-size:13px; transition:opacity .3s; }
+  .hint .i{ color:var(--ink); }
+
+  .coach{
+    position:fixed; left:50%; top:24px; z-index:30; transform:translate(-50%, -8px) scale(.96); opacity:0;
+    height:36px; padding:0 16px; border-radius:18px; display:flex; align-items:center;
+    background:rgba(255,255,255,.9); box-shadow:0 8px 24px -12px rgba(20,30,60,.35); color:var(--ink); font-size:13px; font-weight:500; white-space:nowrap; pointer-events:none;
+    transition:opacity .3s var(--ease), transform var(--spring-dur) var(--spring);
+  }
+  .coach.show{ opacity:1; transform:translate(-50%, 0); }
+
+  /* ---- toast stack ---- */
+  .toasts{ position:fixed; right:24px; bottom:24px; z-index:30; width:min(360px, calc(100vw - 32px)); height:64px; }
+  .toast{
+    position:absolute; left:0; right:0; bottom:0; height:64px; padding:0 12px 0 16px; border-radius:20px;
+    display:flex; align-items:center; gap:12px; background:#fff; box-shadow:0 0 0 1px rgba(15,15,20,.05), 0 16px 40px -12px rgba(20,30,60,.35);
+    transform-origin:50% 0; transition:transform var(--spring-dur) var(--spring), opacity .35s var(--ease);
+  }
+  .toast.in{ transform:translateY(calc(100% + 24px)) scale(.96); opacity:0; }
+  .toast .ico{ width:20px; height:20px; display:grid; place-items:center; color:var(--danger-ink); }
+  .toast .ico .i{ width:20px; height:20px; }
+  .toast .txt{ flex:1; min-width:0; }
+  .toast b{ display:block; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .toast span{ display:block; color:var(--ink-3); font-size:13px; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .toast .btn{ height:32px; padding:0 12px; border-radius:10px; }
+  .toast .txt, .toast button{ transition:opacity .3s; }
+  .toast.behind .txt, .toast.behind button, .toast.behind .ico{ opacity:0; }
+  .toasts:hover .toast.behind .txt, .toasts:hover .toast.behind button, .toasts:hover .toast.behind .ico{ opacity:1; }
+
+  /* mobile: the sidebar folds into a top bar */
+  .topbar{ display:none; }
+  @media (max-width:900px){
+    .app{ inset:0; border-radius:0; max-width:none; max-height:none; grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+    .side{ display:none; }
+    .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); }
+    .page{ padding:20px 16px 24px; gap:16px; }
+    .head-actions .search{ display:none; }
+    .stats{ grid-template-columns:1fr 1fr; }
+    .stat b{ font-size:20px; }
+    .stat b small{ font-size:12px; }
+    .stats .stat:last-child{ display:none; }
+    .thead{ display:none; }
+    .tr{ grid-template-columns:minmax(0,1fr) 32px; }
+    .tr .owner, .tr .muted{ display:none; }
+    .grid2{ grid-template-columns:1fr; }
+    .usage-panel{ display:none !important; }
+    .toolbar .view{ display:none; }
+    .toasts{ right:16px; top:72px; bottom:auto; }
+    .toast{ top:0; bottom:auto; transform-origin:50% 100%; }
+    .toast.in{ transform:translateY(calc(-100% - 24px)) scale(.96); }
+    .coach{ top:auto; bottom:24px; }
+    .zone{ flex-direction:column; align-items:flex-start; }
+    .inv{ grid-template-columns:1fr 80px 32px; }
+    .inv .paid{ display:none; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-files" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M4.2 7.5l1.7 1M18.1 15.5l1.7 1M4.2 16.5l1.7-1M18.1 8.5l1.7-1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5.5 7l1 12a2 2 0 0 0 2 1.8h7a2 2 0 0 0 2-1.8l1-12M9 7V4.8A.8.8 0 0 1 9.8 4h4.4a.8.8 0 0 1 .8.8V7"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10m0-.5V4.5a1.5 1.5 0 0 1 3 0V10m0-1a1.5 1.5 0 0 1 3 0v5a6 6 0 0 1-6 6h-1.2a6 6 0 0 1-4.6-2.2L3.8 14.6a1.5 1.5 0 0 1 2.3-1.9L9 15.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="ws"><span class="ws-logo">A</span><b>Atlas Studio</b><svg class="i"><use href="#i-chev"/></svg></div>
+    <div class="find"><svg class="i"><use href="#i-search"/></svg>Search<kbd>⌘K</kbd></div>
+    <nav class="nav" id="nav" aria-label="Main">
+      <span class="nav-pill" id="nav-pill"></span>
+      <a data-go="home"><svg class="i"><use href="#i-home"/></svg>Home</a>
+      <a data-go="files" aria-current="page"><svg class="i"><use href="#i-files"/></svg>Files<span class="count" id="nav-count"></span></a>
+      <a data-go="shared"><svg class="i"><use href="#i-share"/></svg>Shared with me</a>
+      <a data-go="recent"><svg class="i"><use href="#i-clock"/></svg>Recent</a>
+      <h6>Workspace</h6>
+      <a data-go="billing"><svg class="i"><use href="#i-card"/></svg>Billing</a>
+      <a data-go="members"><svg class="i"><use href="#i-users"/></svg>Members</a>
+      <a data-go="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
+    </nav>
+    <div class="side-foot">
+      <div class="meter-card">
+        <p>Storage <b id="side-storage"></b></p>
+        <div class="bar"><i id="side-bar"></i></div>
+      </div>
+      <div class="row-toggle">Sound effects <button class="switch" id="sound" role="switch" aria-checked="true" aria-label="Sound effects"></button></div>
+      <div class="me"><span class="avatar" style="--c:#c7b8ff">JP</span><div><b>Julia Park</b><span>julia@atlas.studio</span></div></div>
+    </div>
+  </aside>
+
+  <header class="topbar">
+    <span class="ws-logo">A</span>
+    <div class="seg" id="mnav" role="tablist" aria-label="Pages">
+      <span class="pill"></span>
+      <button role="tab" data-go="files" aria-selected="true">Files</button>
+      <button role="tab" data-go="billing" aria-selected="false">Billing</button>
+    </div>
+    <button class="icon" id="sound-m" aria-label="Sound" aria-pressed="true" style="color:var(--ink-2)"><svg class="i"><use href="#i-sound"/></svg></button>
+  </header>
+
+  <main class="main">
+    <section class="page on" id="page-files" aria-label="Files">
+      <div class="head">
+        <div><p class="crumb">Atlas Studio <span>/</span> Files</p><h1>Files</h1></div>
+        <div class="head-actions">
+          <div class="search"><svg class="i"><use href="#i-search"/></svg>Search files</div>
+          <button class="btn primary"><svg class="i"><use href="#i-up"/></svg>Upload</button>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>Storage used</span><b><span id="st-size"></span> <small>of 50 GB</small></b></div>
+        <div class="stat"><span>Files</span><b><span id="st-files"></span> <small>in this folder</small></b></div>
+        <div class="stat"><span>Shared links</span><b>12 <small>active</small></b></div>
+      </div>
+      <div class="toolbar">
+        <div class="seg" id="ftabs" role="tablist" aria-label="Filter">
+          <span class="pill"></span>
+          <button role="tab" data-f="all" aria-selected="true">All <small data-c="all"></small></button>
+          <button role="tab" data-f="doc" aria-selected="false">Documents <small data-c="doc"></small></button>
+          <button role="tab" data-f="media" aria-selected="false">Media <small data-c="media"></small></button>
+        </div>
+        <div class="seg view" id="vtabs" role="tablist" aria-label="View">
+          <span class="pill"></span>
+          <button role="tab" aria-selected="true" aria-label="List"><svg class="i"><use href="#i-list"/></svg></button>
+          <button role="tab" aria-selected="false" aria-label="Grid"><svg class="i"><use href="#i-grid"/></svg></button>
+        </div>
+      </div>
+      <div class="table">
+        <div class="thead"><span>Name</span><span>Owner</span><span>Size</span><span>Modified</span><span></span></div>
+        <div class="tbody" id="rows"></div>
+        <div class="empty">Nothing left in here.<button class="btn" id="refill">Bring the files back</button></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-billing" aria-label="Billing">
+      <div class="head">
+        <div><p class="crumb">Atlas Studio <span>/</span> Billing</p><h1>Billing</h1></div>
+        <div class="seg" id="btabs" role="tablist" aria-label="Billing sections">
+          <span class="pill"></span>
+          <button role="tab" data-t="plan" aria-selected="true">Plan</button>
+          <button role="tab" data-t="invoices" aria-selected="false">Invoices</button>
+          <button role="tab" data-t="payment" aria-selected="false">Payment</button>
+        </div>
+      </div>
+
+      <div class="tab-body on" id="tab-plan">
+        <div class="grid2">
+          <div class="panel">
+            <div class="plan-top">
+              <div class="plan-name"><span class="plan-mark">P</span>Pro</div>
+              <span class="badge" id="plan-badge">Active</span>
+            </div>
+            <div class="price"><b id="price">$12</b><span id="per">per month</span><span class="save" id="save">2 months free</span></div>
+            <div class="seg" id="cycle" role="tablist" aria-label="Billing cycle" style="align-self:flex-start">
+              <span class="pill"></span>
+              <button role="tab" data-c="m" aria-selected="true">Monthly</button>
+              <button role="tab" data-c="y" aria-selected="false">Yearly</button>
+            </div>
+            <div class="plan-rows">
+              <div class="plan-row">Next charge <b id="next">Dec 2, 2026</b></div>
+              <div class="plan-row">Auto renew <button class="switch" id="renew" role="switch" aria-checked="true" aria-label="Auto renew"></button></div>
+            </div>
+          </div>
+          <div class="panel usage-panel">
+            <h3>Usage this month</h3>
+            <div class="usage">
+              <div class="use"><p>Storage <b>18.2 / 50 GB</b></p><div class="bar"><i data-v=".36"></i></div></div>
+              <div class="use"><p>Members <b>6 / 10</b></p><div class="bar"><i data-v=".6"></i></div></div>
+              <div class="use"><p>AI credits <b>3,420 / 5,000</b></p><div class="bar"><i data-v=".68"></i></div></div>
+              <div class="use"><p>Version history <b>Forever</b></p><div class="bar"><i data-v="1"></i></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="zone">
+          <div><b id="zone-title">Cancel subscription</b><p id="zone-text">You keep Pro until the end of the period. Nothing is deleted.</p></div>
+          <button class="btn ghost-danger" id="cancel-plan">Cancel plan</button>
+        </div>
+      </div>
+
+      <div class="tab-body" id="tab-invoices">
+        <div class="table" style="flex:none">
+          <div class="inv"><span>Nov 2, 2026</span><b class="muted">$12.00</b><span class="paid">Paid</span><button class="icon" aria-label="Download"><svg class="i"><use href="#i-down"/></svg></button></div>
+          <div class="inv"><span>Oct 2, 2026</span><b class="muted">$12.00</b><span class="paid">Paid</span><button class="icon" aria-label="Download"><svg class="i"><use href="#i-down"/></svg></button></div>
+          <div class="inv"><span>Sep 2, 2026</span><b class="muted">$12.00</b><span class="paid">Paid</span><button class="icon" aria-label="Download"><svg class="i"><use href="#i-down"/></svg></button></div>
+          <div class="inv"><span>Aug 2, 2026</span><b class="muted">$12.00</b><span class="paid">Paid</span><button class="icon" aria-label="Download"><svg class="i"><use href="#i-down"/></svg></button></div>
+        </div>
+      </div>
+
+      <div class="tab-body" id="tab-payment">
+        <div class="panel" style="flex-direction:row; align-items:center; gap:24px; flex-wrap:wrap">
+          <div class="cc"><span class="chip"></span><p>•••• •••• •••• 4242</p><div><span>Julia Park</span><span>09 / 29</span></div></div>
+          <div style="display:grid; gap:12px"><b style="font-weight:500">Visa ending in 4242</b><p class="muted">Charged on the 2nd of each month</p><button class="btn" style="justify-self:start">Update card</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="scrim" id="scrim">
+  <div class="dialog" id="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-text">
+    <div class="glyph"><svg class="i"><use href="#i-trash"/></svg></div>
+    <h2 id="dlg-title"></h2>
+    <p id="dlg-text"></p>
+    <div class="meta" id="dlg-meta"></div>
+    <div class="actions">
+      <button class="btn lg" type="button" id="dlg-cancel"></button>
+      <button class="btn lg danger" type="button" id="dlg-confirm"></button>
+    </div>
+  </div>
+  <p class="hint"><svg class="i"><use href="#i-hand"/></svg><span id="hint-text"></span></p>
+</div>
+
+<div class="coach" id="coach" aria-live="polite"></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script src="../vendor/modern-screenshot.js"></script>
+<script src="../crumple.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>

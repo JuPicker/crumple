@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crumple: basic</title>
+<style>
+  body{ margin:0; min-height:100vh; display:grid; place-items:center; background:#eef1f5; font:15px/1.5 system-ui, sans-serif; color:#18181b; touch-action:none; user-select:none; }
+  .dialog{ width:min(360px, calc(100vw - 32px)); padding:24px; border-radius:24px; background:#fff; box-shadow:0 24px 56px -16px rgba(20,30,60,.3); }
+  .dialog h2{ margin:0 0 4px; font-size:17px; font-weight:600; }
+  .dialog p{ margin:0; color:#5f5f67; }
+  .actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:24px; }
+  button{ height:44px; border:0; border-radius:16px; font:inherit; font-weight:500; cursor:pointer; background:#f1f1f3; color:inherit; }
+  .danger{ background:#c4473e; color:#fff; touch-action:none; }
+  .done{ display:none; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="dialog" id="dialog">
+    <h2>Delete this draft?</h2>
+    <p>Hold Delete, then throw it in the bin.</p>
+    <div class="actions">
+      <button id="cancel">Cancel</button>
+      <button class="danger" id="delete">Delete</button>
+    </div>
+  </div>
+  <p class="done" id="done">Gone. <button id="again" style="height:32px;padding:0 12px;border-radius:10px">Undo</button></p>
+
+  <!-- modern-screenshot turns the dialog into a texture; Crumple works without it if you pass `snapshot` -->
+  <script src="../vendor/modern-screenshot.js"></script>
+  <script src="../crumple.js"></script>
+  <script>
+    const dialog = document.getElementById('dialog');
+    const del = document.getElementById('delete');
+    const done = document.getElementById('done');
+    const toss = Crumple.create();
+    let last = null;
+
+    // capture once the dialog is on screen, so the first frame is instant
+    document.fonts.ready.then(() => toss.prepare(dialog));
+
+    del.addEventListener('pointerdown', (e) => { e.preventDefault(); toss.grab(dialog, e); });
+    del.addEventListener('click', (e) => { if (e.detail === 0) toss.throwInto(dialog); }); // keyboard
+
+    toss.on('score', (ball) => { last = ball; done.style.display = 'block'; });
+    document.getElementById('again').addEventListener('click', () => {
+      toss.discard(last);                 // quiet undo
+      dialog.style.visibility = '';
+      done.style.display = 'none';
+      toss.prepare(dialog);
+    });
+    document.getElementById('cancel').addEventListener('click', () => (dialog.style.opacity = '.4'));
+  </script>
+</body>
+</html>
